@@ -1,0 +1,124 @@
+﻿-- Câu 1: Cho biết tổng số lượng đặt hàng và tổng chi phí hóa đơn của từng loại sản phẩm,
+-- sắp theo thứ tự giảm dần theo tổng chi phí hóa đơn
+SELECT 
+	{[Measures].[total],
+	[Measures].[Qty Ordered]} ON COLUMNS,
+	NON EMPTY
+	ORDER
+	(
+	[DIM Item].Category.Children ,
+	[Measures].[total],
+	DESC
+	) ON ROWS
+FROM 
+	[wh sale usa]
+
+-- Câu 2: Hãy cho biết 5 tên khách hàng có tổng số tiền đặt hàng cao nhất trong năm 2020
+SELECT 
+	[Measures].[total] on COLUMNS,
+	TopCount(
+	{
+	([DIM Customer].[Full Name].Children ,
+	[DIM Customer].[City].Children,
+	[DIM Customer].[Age].Children)
+	}, // Tham số thứ nhất là 1 tập hợp các tuple cùng chung dimension
+	5, // Số lượng khách hàng muốn lấy 
+	[Measures].[total] // Sum theo value
+	) ON ROWS -- Sử dùng hàm Top count để lấy ra 5 khách hàng 
+FROM [wh sale usa]
+WHERE [DIM Order Date].[Year].&[2020] // Điều kiện là trong năm 2020
+	
+-- Câu 3:  Hãy cho biết thông tin của khách hàng có tổng số tiền đặt hàng > 2000 theo loại Computing
+-- trong năm 2020
+SELECT 
+	[Measures].[total] on COLUMNS,
+ORDER(	
+Filter(
+    [DIM Customer].[Full Name].Children,
+    [Measures].[total] > 2000 AND [DIM Item].[Category].&[Computing]
+  ),
+  [Measures].[total],	
+  DESC
+ )ON 1
+FROM [wh sale usa]
+WHERE [DIM Order Date].[Year].&[2020]
+
+-- Câu 4: Hãy cho biết 5 thành phố có số lượng đặt hàng cao nhất trong năm 2020 
+SELECT 
+	 [Measures].[Qty Ordered] on COLUMNS,
+	 TopCount(
+[DIM Customer].[City].Children,
+5,
+[Measures].[Qty Ordered] 
+)on ROWS
+FROM [wh sale usa]
+WHERE [DIM Order Date].[Year].&[2020]
+
+-- Câu 5: Với từng loại sản phẩm liệt kê số lượng sản phẩm bán ra trong tháng 10/2020
+-- trừ loại Appliances 
+SELECT [Measures].[Qty Ordered] ON COLUMNS,
+NON EMPTY
+	Except([DIM Item].[Category].Children , {[DIM Item].[Category].[Appliances]}) ON ROWS
+FROM [wh sale usa]
+WHERE CROSSJOIN([DIM Order Date].[Year].&[2020],[DIM Order Date].[Month].&[10])
+
+	
+-- Câu 6: Cho biết loại sản phẩm có số lượng bán ít nhất, loại sản phẩm nào có số lượng bán nhiều nhất
+Select [Measures].[Qty Ordered] on columns,
+NON EMPTY
+	Union(
+		TopCount(
+		[DIM Item].[Category].[Category],
+		1,
+		[Measures].[Qty Ordered]
+		), 
+		BottomCount(
+		[DIM Item].[Category].Children,
+		2, 
+		[Measures].[Qty Ordered])
+	) ON ROWS
+From [wh sale usa];
+
+--Câu 7: Với mỗi khu vực, đưa ra 3 thành phố có tổng số lượng đặt hàng của khách hàng cao nhất 
+Select {[Measures].[Qty Ordered]} on Columns,
+{Generate(
+	[DIM Customer].[Region].Children,
+	TopCount( 
+		{[DIM Customer].[Region].CurrentMember* [DIM Customer].[City].Children}
+		,3,[Measures].[Qty Ordered]
+	)
+)} on Rows
+From [wh sale usa];
+
+--Câu 8: Cho biết tổng số lượng sản phẩm bán ra trong tháng 10/2020 theo từng loại sản phẩm ở các khu vực trừ Midwest.
+SELECT NON EMPTY 
+{ [Measures].[Qty Ordered] } ON COLUMNS,
+[DIM Item].[Category].Children ON ROWS
+FROM [wh sale usa]
+where ({[DIM Order Date].[Y_M].&[2020].&[10]}, 
+		except(
+		[DIM Customer].[Region],[DIM Customer].[Region].&[Midwest])
+)
+
+-- Câu 9: Tìm tổng số lượng sản phẩm bán ra theo từng năm, và từng tháng trong năm. 
+Select Non empty{[Measures].[Qty Ordered]} on Columns,
+{DrillDownLevel(
+		DrillDownLevel([DIM Order Date].[Y_M])	
+		)
+} on Rows
+From [wh sale usa]
+
+
+-- Câu 10: Với từng loại sản phẩm hãy cho biết số lượng sản phẩm bán ra trong từng năm 
+SELECT 
+	[Measures].[Qty Ordered] ON COLUMNS,
+{
+Generate([DIM Item].[Category].Children,
+		TopCount(
+		{[DIM Item].[Category].CurrentMember * [DIM Order Date].[Year].Children},2,[Measures].[Qty Ordered] 
+		)
+)
+}
+ON ROWS 
+FROM  [wh sale usa]
+			
